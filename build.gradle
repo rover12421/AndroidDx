@@ -1,0 +1,108 @@
+group 'com.rover12421.android'
+version '1.16'
+
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile 'junit:junit:4.12'
+}
+
+task Wrapper(type: Wrapper) {
+    gradleVersion = '4.6'
+    distributionType = Wrapper.DistributionType.ALL
+}
+
+def loadProperties(String sourceFileName) {
+    def config = new Properties()
+    def propFile = new File(sourceFileName)
+    System.err.println("Loading property file: " + propFile.absolutePath)
+    if (propFile.canRead()) {
+        config.load(new FileInputStream(propFile))
+        for (Map.Entry property in config) {
+            System.out.println("setting " + property.key)
+            project.ext[property.key] = property.value
+        }
+    }
+}
+
+loadProperties("local.properties")
+
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addStringOption('encoding', 'UTF-8')
+    options.addStringOption('charSet', 'UTF-8')
+}
+
+task release {
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}
+
+signing {
+    required { gradle.taskGraph.hasTask('uploadArchives') }
+    sign configurations.archives
+}
+
+uploadArchives {
+    repositories.mavenDeployer {
+        configuration = configurations.archives
+
+        beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+        repository(url: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+            authentication(userName: sonatypeUsername, password: sonatypePassword)
+        }
+
+        pom.artifactId = project.name
+
+        pom.project {
+            name project.name
+            description "Android dx tools"
+            url 'https://github.com/rover12421'
+            packaging 'jar'
+            licenses {
+                license {
+                    name 'MIT License'
+                    url 'https://opensource.org/licenses/mit-license.php'
+                    distribution 'repo'
+                }
+            }
+            scm {
+                url 'https://github.com/rover12421/AndroidDx/tree/master'
+                connection 'scm:git:git://github.com/rover12421/AndroidDx.git'
+                developerConnection 'scm:git:git@github.com:rover12421/AndroidDx.git'
+            }
+            developers {
+                developer {
+                    id 'rover12421'
+                    name 'Rover12421'
+                    email 'rover12421@163.com'
+                }
+            }
+        }
+    }
+}
+
+tasks.getByPath(":release").dependsOn(uploadArchives)
